@@ -180,6 +180,7 @@ func main() {
 							}
 						}
 						w.SetContent(tasksContent)
+						tasksList.Unselect(id)
 					},
 					w,
 				)
