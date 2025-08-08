@@ -70,6 +70,14 @@ func main() {
 			}
 			defer f.Close()
 
+			if len(tasks) == 0 {
+				_, err = f.WriteString("No tasks\n")
+				if err != nil {
+					dialog.NewError(err, w).Show()
+					return
+				}
+			}
+
 			for i, t := range tasks {
 				if t.Description == "" {
 					_, err = f.WriteString(fmt.Sprintf("%d. %s\n", i+1, t.Title))
@@ -95,6 +103,10 @@ func main() {
 			pdf := gofpdf.New("P", "mm", "A4", "")
 			pdf.AddPage()
 			pdf.SetFont("Arial", "", 12)
+
+			if len(tasks) == 0 {
+				pdf.CellFormat(0, 10, "No tasks", "", 1, "", false, 0, "")
+			}
 
 			for i, t := range tasks {
 				if t.Description == "" {
