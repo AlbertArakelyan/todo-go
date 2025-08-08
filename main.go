@@ -62,7 +62,7 @@ func main() {
 		// widget.NewLabel("Your Tasks"),
 		canvas.NewText("Your Tasks", color.Black),
 		layout.NewSpacer(), // like margin-left: auto
-		widget.NewButton("Export to txt", func() {
+		widget.NewButton("Export to TXT", func() {
 			f, err := os.Create("todo.txt")
 			if err != nil {
 				dialog.NewError(err, w).Show()
@@ -96,7 +96,7 @@ func main() {
 
 			dialog.NewInformation("Exported", "Your tasks have been exported to todo.txt file", w).Show()
 		}),
-		widget.NewButton("Export to pdf", func() {
+		widget.NewButton("Export to PDF", func() {
 			// Export to PDF functionality
 			// The pdf package is needed for this functionality.
 			// Please install it using: go get github.com/jung-kurt/gofpdf
