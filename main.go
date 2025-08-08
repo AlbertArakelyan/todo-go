@@ -3,14 +3,17 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/jung-kurt/gofpdf"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -55,18 +58,66 @@ func main() {
 	deleteTaskIcon, _ := fyne.LoadResourceFromPath("./icons/delete.png")
 
 	// Header
-
 	tasksBar := container.NewHBox( // NewHBox() from left to right (flex-direction: row)
 		// widget.NewLabel("Your Tasks"),
 		canvas.NewText("Your Tasks", color.Black),
 		layout.NewSpacer(), // like margin-left: auto
+		widget.NewButton("Export to txt", func() {
+			f, err := os.Create("todo.txt")
+			if err != nil {
+				dialog.NewError(err, w).Show()
+				return
+			}
+			defer f.Close()
+
+			for i, t := range tasks {
+				if t.Description == "" {
+					_, err = f.WriteString(fmt.Sprintf("%d. %s\n", i+1, t.Title))
+					if err != nil {
+						dialog.NewError(err, w).Show()
+						return
+					}
+				} else {
+					_, err = f.WriteString(fmt.Sprintf("%d. %s - %s\n", i+1, t.Title, t.Description))
+					if err != nil {
+						dialog.NewError(err, w).Show()
+						return
+					}
+				}
+			}
+
+			dialog.NewInformation("Exported", "Your tasks have been exported to todo.txt file", w).Show()
+		}),
+		widget.NewButton("Export to pdf", func() {
+			// Export to PDF functionality
+			// The pdf package is needed for this functionality.
+			// Please install it using: go get github.com/jung-kurt/gofpdf
+			pdf := gofpdf.New("P", "mm", "A4", "")
+			pdf.AddPage()
+			pdf.SetFont("Arial", "", 12)
+
+			for i, t := range tasks {
+				if t.Description == "" {
+					pdf.CellFormat(0, 10, fmt.Sprintf("%d. %s", i+1, t.Title), "", 1, "", false, 0, "")
+				} else {
+					pdf.CellFormat(0, 10, fmt.Sprintf("%d. %s - %s", i+1, t.Title, t.Description), "", 1, "", false, 0, "")
+				}
+			}
+
+			err := pdf.OutputFileAndClose("todo.pdf")
+			if err != nil {
+				dialog.NewError(err, w).Show()
+				return
+			}
+
+			dialog.NewInformation("Exported", "Your tasks have been exported to todo.pdf file", w).Show()
+		}),
 		widget.NewButtonWithIcon("", newTaskIcon, func() {
 			w.SetContent(createContent)
 		}),
 	)
 
 	// Main
-
 	tasksList = widget.NewList(
 		func() int {
 			return len(tasks)
@@ -102,35 +153,24 @@ func main() {
 		buttonsBox := container.NewHBox(
 			// DELETE
 			widget.NewButtonWithIcon("", deleteTaskIcon, func() {
-				// dialog.ShowConfirm(
-				// 	"Delete Task",
-				// 	fmt.Sprintf("Are you sure you want to delete \"%s\"?", tasks[id].Title),
-				// 	func(b bool) {
-				// 		if b {
-				// 			DB.Delete(&Task{}, "Id = ?", tasks[id].Id)
-				// 			DB.Find(&tasks)
+				dialog.ShowConfirm(
+					"Delete Task",
+					fmt.Sprintf("Are you sure you want to delete \"%s\"?", tasks[id].Title),
+					func(b bool) {
+						if b {
+							DB.Delete(&Task{}, "Id = ?", tasks[id].Id)
+							DB.Find(&tasks)
 
-				// 			if len(tasks) == 0 {
-				// 				noTasksLabel.Show()
-				// 			} else {
-				// 				noTasksLabel.Hide()
-				// 			}
-				// 		}
-				// 		w.SetContent(tasksContent)
-				// 	},
-				// 	w,
-				// ),
-
-				DB.Delete(&Task{}, "Id = ?", tasks[id].Id)
-				DB.Find(&tasks)
-
-				if len(tasks) == 0 {
-					noTasksLabel.Show()
-				} else {
-					noTasksLabel.Hide()
-				}
-
-				w.SetContent(tasksContent)
+							if len(tasks) == 0 {
+								noTasksLabel.Show()
+							} else {
+								noTasksLabel.Hide()
+							}
+						}
+						w.SetContent(tasksContent)
+					},
+					w,
+				)
 			}),
 
 			// EDIT
@@ -154,7 +194,7 @@ func main() {
 				editDescriptionEntry.SetText(tasks[id].Description)
 
 				editButton := widget.NewButtonWithIcon("Save Task", saveIcon, func() {
-					DB.Find(&Task{}, "Id = ?", tasks[id].Id).Updates(
+					DB.Model(&Task{}).Where("Id = ?", tasks[id].Id).Updates(
 						Task{
 							Title:       editTitleEntry.Text,
 							Description: editDescriptionEntry.Text,
@@ -256,7 +296,7 @@ func main() {
 		),
 	)
 
-	w.SetContent(tasksContent) // something like appendChild()
+	w.SetContent(tasksContent)
 	w.Show()
 	a.Run()
 }
